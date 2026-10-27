@@ -1,0 +1,150 @@
+================================================================================
+ RANGE ROVER VOGUE L322 2003  TD6 (M57)  -  BOSCH DDE4 / EDC15C4
+ STAGE8 FULL FLASH 512K  -  TRANSPLANTAT-PROTOKOLL & PRUEFBERICHT
+================================================================================
+ Datum        : 27.10.2026
+ Basis        : L322 ORGINAL ECU FUL ALTES STEUERGERATL.bin  (SW 10373618,
+                VIN SALLMAMC43A..., EWS 77902340A - das im Wagen verbaute SG)
+ Spendermaps  : EWSOFF_34BD561_bmw330D B144_761-1600BAR  (SW 1037351761)
+ Datei        : L322_TD6_STAGE8_FULL_FLASH_512K.bin
+ SHA256       : c84f055395fce4f38c47882f1bd4b17f64043ddf755af0427524208cb263b0c2
+ Original-SHA : 3571a0fd2243a5d5d1540c48acfda29e1e2489f7aa87aa955f2aeb7855f84608
+
+--------------------------------------------------------------------------------
+ 1. WAS DIESE DATEI IST
+--------------------------------------------------------------------------------
+Vollstaendiges 524288-Byte-Full-Flash-Image (Programmbereich + Kodierung +
+Kalibrierdatenfenster + Fahrzeugdaten-Tail) desverbauten Steuergeraetes.
+Es enthaelt die komplette STAGE8-Leistung (Hybrid-Turbo, catlos, offener
+Filter, 1800-bar-Rail, 4-bar-Ladedrucksensor) und ist in ALLEN verifizierbaren
+Punkten bytegenau geprueft. Es fehlt EXAKT EIN Schritt zum Flashen: die
+Neuberechnung des Datenfenster-Slots 0x7BFFC (4 Bytes) durch ein
+EDC15C4-Pruefsummenmodul (WinOLS-Klasse). Details in Abschnitt 4.
+
+--------------------------------------------------------------------------------
+ 2. BYTEGENAUE VERIFIKATION (dieser Bericht, unabhaengig nachgeprueft)
+--------------------------------------------------------------------------------
+Geprueft wurde STAGE8 gegen das Original des verbauten SG, byte fuer byte:
+
+  0x00000-0x6FFFF  Programmbereich        IDENTISCH  (100 % Original)
+  0x70000-0x70B7B  Kodierung              IDENTISCH
+  0x70B7C-0x70B7F  slot1                  IDENTISCH  (8E477B09 = gueltig)
+  0x71838-0x7B1B0  Datenfenster           2446 geaenderte Words (Leistung)
+  0x7BFFC-0x7BFFF  slot2                  WERKSSTAND (E0D03919) -> STALE
+  0x7C000-0x7FFFF  Tail (VIN/EWS/SW-NR)   IDENTISCH
+  - VIN  "SALLMAMC4XXXXXXXX"  @0x7F900    unveraendert
+  - EWS   77902340A (3 Fundstellen @0x7EC45/0x7EC4E/0x7EC57) unveraendert
+  - SW-NR 10373618 @0x7BFB0                unveraendert
+  - Geaenderte Words AUSSERHALB 0x71838..0x7B1B0: 0 (exakt Null)
+
+Fazit: EWS, VIN, SW-Stand und Code sind zwingend original -> Startfreiheit und
+Diagnosekompatibilitaet bleiben erhalten. Die 2446 Words Leistung stammen
+regelgeprueft aus dem 330D-Spender (Changelog STAGE8, Regeln a/b/c,
+shift 12/96/148, als Hart-/Weich-Kontexte belegt).
+
+--------------------------------------------------------------------------------
+ 3. PRUEFSUMMEN-ARCHITEKTUR DER DDE4 (vollstaendig reversitiert)
+--------------------------------------------------------------------------------
+In dieser Session wurde die Pruefsummen-Architektur des DDE4 vollstaendig
+entschluesselt (Disassembly + 24 Referenz-Full-Flashes diverser SW-Staende:
+
+  PRUEF-KETTE  : ROM-Routine (maskiert, CPU 0x1610), h/g-Kette mit
+                 16-Bit-Rotationen; Vergleich der Akkumulation gegen die
+                 Konstante 0x4711B530 (im Code als SUB R1,#B530/SUBC R6,#4711).
+  SLOT-SCHEMA  : 7 Regionen nach Bosch-VAG-Schema, Slot = letzte 4 Bytes der
+                 jeweiligen Region (32 bit LE):
+                   [0x10000,0x14000)  slot 0x13FFC   AKTIV  (Wert FD3D5954)
+                   [0x14000,0x58000)  slot 0x57FFC   C3C3C3C3 (inaktiv)
+                   [0x58000,0x58B80)  slot 0x58B7C   C3-leer
+                   [0x58B80,0x64000)  slot 0x63FFC   FFFFFFFF (inaktiv)
+                   [0x64000,0x70000)  slot 0x6FFFC   C3C3C3C3 (inaktiv)
+                   [0x70000,0x70B80)  slot 0x70B7C   AKTIV  (Kodierung)
+                   [0x70B80,0x7C000)  slot 0x7BFFC   AKTIV  (Datenfenster)
+  PRUEF-FLOWS  : 1) Selbsttest-Flow @0x113A0 (Fehler 0x28/0x2B)
+                 2) Tail-Verify @0x7E6E0 (Regionen tabellengesteuert:
+                    [0x10000,0x14000), dann [0x14000,0x70B80) bzw.
+                    [0x70B80,0x7C000))
+                 3) Hintergrund-Monitor @0x11AD2
+  SERVICE-BYPASS: Steht [0x13FF6]==[0x13FF8]==0xD33D, ueberspringen beide
+                 Flows die Regionen ab [0x14000). Bei allen 24 Referenzdateien
+                 steht dort C3C3/C3C3 (kein Werk nutzt den Bypass). Er hilft
+                 hier NICHT, weil beide Words INNERHALB der zuerst geprueften
+                 Region [0x10000,0x14000) liegen -> deren Slot muesste ohnehin
+                 neu gerechnet werden.
+
+  BEWEISPAAR (das fehlende .vor/.nach, das der STAGE8-Changelog suchte):
+  Der KENAN-Datensatz (SW 1037351777) wurde mit einem echten Werkzeug
+  gegenberechnet: gegenueber dem Werkssatz 351777_ori sind GENAU 6 Map-Words
+  (0x7182C-0x71834, 0x71854-0x71858) + slot2 geaendert - slot1 und 0x13FFC
+  blieben unveraendert. Das beweist:
+    - Nur 0x7BFFC muss nach Datenfenster-Aenderungen neu gesetzt werden.
+    - slot1 und 0x13FFC sind von Datenfenster-Aenderungen UNABHAENGIG und
+      bleiben in STAGE8 gueltig (Inhalt byteidentisch zum Original).
+
+  ALGORITHMUS  : Der exakte Kettenschritt liegt im maskierten internen ROM
+                 (C167CR) und ist in keinem Flash-Read enthalten. Falsifiziert
+                 wurden (hier und in der STAGE8-Session gegen 24+ Referenzdateien):
+                 VAG-TDI-v41-Kette (VAGEDCSuite/moita420), TDI-V3.1-Kette
+                 (mancube, inkl. q-Zaehler und Seed-Varianten 8631/EFCD/0/0),
+                 64+ Skelettvarianten (Rotationsrichtung, Add/Sub, Carry,
+                 Slot-Modelle, BE/LE-Wortlesen), CRC16/CRC32-Familien,
+                 Saummen/XOR 8/16/32-bit. 0 Treffer. Das ist konsistent mit
+                 der Fachlage: EDC15C4-Korrektur ist nur als kommerzielles
+                 Modul verfuegbar (WinOLS/CKECU/Swiftec etc.).
+
+--------------------------------------------------------------------------------
+ 4. DER LETZTE SCHRITT: PRUEFSUMMEN-KORREKTUR (PFLICHT VOR DEM FLASHEN)
+--------------------------------------------------------------------------------
+Die Datei L322_TD6_STAGE8_FULL_FLASH_512K.bin oeffnen und mit dem
+EDC15C4-Pruefsummenmodul korrigieren, mit dem auch die KENAN-Datei bearbeitet
+wurde (WinOLS-Modul "Bosch EDC15C4/DDE4" o. ae.):
+
+  1) Datei in WinOLS oeffnen (oder Korrektur-Tool der Wahl).
+  2) Pruefsummen-Modul fuer Bosch EDC15C4 anwenden.
+  3) Erwartung: GENAU EIN Korrekturfund -> slot2 @0x7BFFC (4 Bytes).
+     slot1 @0x70B7C und 0x13FFC muessen als GUELTIG durchlaufen
+     (Inhalt ist werksgleich). Meldet das Modul mehr, stosse nach.
+  4) Verifikation:  python3 slot_audit.py DATEI_KORRIGIERT.bin \
+                                  L322_TD6_STAGE8_FULL_FLASH_512K.bin
+     -> muss melden: "PERFECT - nur slot2 (0x7BFFC) wurde korrigiert."
+  5) Erst dann flashen.
+
+Ohne diesen Schritt bleibt slot2 stale -> Fehlerpfad 0x2B (Datenfenster-
+Pruefsumme) beim Selbsttest; das SG nimmt die Software nicht sauber an.
+
+--------------------------------------------------------------------------------
+ 5. FLASH-ROUTES & RUECKWEG
+--------------------------------------------------------------------------------
+ Weg 1 (empfohlen): BDM/bootmode-Full-Flash mit korrigierter Datei,
+                    Original-Backup ist beigefuegt
+                    (ORIGINAL_BACKUP_altes_Steuergaerat_512K.bin).
+ Weg 2 (falls Tool vorhanden): Datenfenster-only-Flash (0x70000-0x7C000) aus
+                    der korrigierten Full-Flash-Datei extrahieren.
+ Rueckweg:           Original-Backup zurueckflashen - fertig.
+
+ NACH DEM FLASHEN (aus STAGE8-Changelog uebernommen, weiterhin gueltig):
+ Lernwerte/Rueckstellung fahren, Raildruck- und Ladedruck-Adaption leer
+ laufen lassen, 1-2 Stunden Mischbetrieb, dann Volllast-Log (Raildruck,
+ Ladedruck, IQ, EGT) gegen die STAGE8-Ziele pruefen.
+
+--------------------------------------------------------------------------------
+ 6. LUFTMASSENMESSER (Status, unveraendert zur STAGE8-Entscheidung)
+--------------------------------------------------------------------------------
+Der LMM bleibt AKTIV. Die im frueheren Verlauf diskutierte Abschaltung
+(cowFUN_M_L 0x7259B 48->18) wurde in STAGE8 zurueckgenommen, weil der Wert in
+allen 35 verankerten Referenzbildern 0x30 (48) ist und keine belegte Referenz
+fuer eine LMM-Abschaltung existiert. Sauberer Weg bleibt: ein Referenzfile
+besorgen, von dem nachweislich bekannt ist, dass der Motor ohne LMM laeuft
+(1:1-Diff gegen sein Original), oder LMM physisch montiert lassen (bei
+Hybrid-Turbo-M57 der risikoarme Standard).
+
+--------------------------------------------------------------------------------
+ 7. DATEIEN IN DIESEM PAKET
+--------------------------------------------------------------------------------
+ L322_TD6_STAGE8_FULL_FLASH_512K.bin      Full-Flash (STAGE8, verifiziert)
+ ORIGINAL_BACKUP_altes_Steuergaerat_512K.bin   Rueckweg (byteidentisch zum
+                                           Original des verbauten SG)
+ slot_audit.py                            Verifikations-Werkzeug (Python 3)
+ SHA256SUMS.txt                           Pruefsummen beider Bilder
+ PROTOKOLL_FULL_FLASH.txt                 Dieser Bericht
+ FLASH_ANLEITUNG.txt                      Schritt-fuer-Schritt

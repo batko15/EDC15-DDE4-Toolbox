@@ -1,0 +1,21 @@
+{
+  "_kommentar": "Map-Transplantat A: 330D 1600BAR (SW 1037351761) -> RR L322 TD6 (SW 1037351777, 'grosse Sensoren'). Offsets RELATIV zum Cal-Container (48K ab 0x70000 im Full-Flash). donor_shift: RR-Version hat 2 Extra-Woerter bei 0x03862, daher ist der Spender ab 0x0386RR um -4 zu verschieben (at=Ziel-Offset 0x3866). Geschuetzte Zonen bleiben RR-original: Header, Signaturen 97c1, grosse-Sensoren-Record 9ada, Drucklimit 18000, DTC/Monitor-Konfig, SW-Nummer 1037351777, strukturelle Insertion.",
+  "cal_offset": "0x70000",
+  "cal_size": "0xC000",
+  "donor_shift": { "at": "0x3866", "delta": -4 },
+  "insert_keep": ["0x3862", "0x3866"],
+  "keep": [
+    ["0x00000", "0x00010"],
+    ["0x00B70", "0x00B80"],
+    ["0x01820", "0x01845"],
+    ["0x01850", "0x01860"],
+    ["0x018D0", "0x01930"],
+    ["0x01E80", "0x01EC0"],
+    ["0x02010", "0x02030"],
+    ["0x02520", "0x02550"],
+    ["0x028C0", "0x02900"],
+    ["0x033E0", "0x03400"],
+    ["0x0BFB0", "0x0BFC0"],
+    ["0x0BFF0", "0x0C000"]
+  ]
+}

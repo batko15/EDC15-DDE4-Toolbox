@@ -1,0 +1,180 @@
+================================================================================
+ TRANSPLANTAT-PROTOKOLL
+ Range Rover L322 TD6 (Bosch DDE4.0 / EDC16C1)
+ Leistung-Transplantat: BMW 330D "1600 BAR" Tune  ->  RR-Original-Software
+================================================================================
+ Datum:        27.10.2026
+ Basis (ZIEL): WinOLS_Land_Rover_Range_Rover_KENAN_TD6_ORIGINAL_große_Sensoren.bin
+               Software 1037351777 / Kennung 0116603601C118 / B079EWS3040040
+               Container CC1.010040, 512 KB Flash, Cal-Block 48 KB @ 0x70000
+ Spender:      1600 BAR TUNQn_DDE4_1037351761_tune.bin
+               ("EWSOFF_34BD561_bmw330D B144_761-1600BAR")
+               Software 1037351761 / Kennung 0116603001C026 / B079EWS3040038
+ Referenzen:   Unknown_DDE4_1037351777_tune.bin  (= Stock-Kalibrier zu 1037351777,
+               stimmt zu 99,84 % mit der Basis ueberein)
+               L322 ORGINAL ECU FUL ALTES STEUERGERATL.bin (altes Steuergeraet,
+               SW 1037361814/1037351893, ANDERE Container-Generation 0x2580 ->
+               als Basis NICHT kompatibel, nur als Referenz genutzt)
+
+--------------------------------------------------------------------------------
+ 1. PRINZIP
+--------------------------------------------------------------------------------
+NICHT der Spender-Block wurde 1:1 uebernommen (das ist die Ursache der bekannten
+"Steuergeraete fehlen"-Probleme), sondern es wurde RECORD-REGIONEN-genau der
+Tuning-Inhalt des 330D-Files in die RR-eigene Kalibrierstruktur eingesetzt:
+
+  - Container-Header/Verzeichnis (0x0000-0x0490): RR-original
+  - Software-Kennung 1037351777: RR-original (ECU meldet sich weiterhin korrekt)
+  - Code-Bereich 0x08000-0x40000: RR-original (CAN/EGS/Kommunikation bleibt RR!)
+  - EWS-/Fahrzeugdaten 0x50000-0x60000: RR-original
+  - Nur der Kalibrierblock (48 KB @ Flash 0x70000) wurde modifiziert.
+
+Alignment: Der Spender ist dieselbe Container-Generation (Feld 0x3EB2-Familie).
+Ab Blockoffset 0x03866 ist sein Inhalt um exakt 4 Byte gegenueber der RR-Version
+verschoben (die RR-Version hat 2 Extra-Woerter in einem Datensatz bei 0x03862).
+Alle Kopien wurden entsprechend shift-korrigiert; die 2 Extra-Woerter bleiben
+RR-original (Struktur!).
+
+ Umfang Variante A: 10.868 Bytes im Cal-Block geaendert (22,7 % des Blocks)
+ Umfang Variante B: +15 Bytes (DTC-Abschaltzonen des Spenders, siehe Abschnitt 5)
+
+--------------------------------------------------------------------------------
+ 2. WAS JETZT AUS DEM 330D-TUNE AKTIV IST (VORHER -> NACHHER)
+--------------------------------------------------------------------------------
+ a) Sechs grosse Kennfelder (~1 KB je Karte, identische Drehzahlachse 363-3930)
+    @ 0x5C30 / 0x6056 / 0x647C / 0x68A2 / 0x6CC8 / 0x70EE:
+    Daten komplett vom 330D-Tune (per-Gang-Rauchgrenzen-/Einspritzkernkarten).
+ b) Einspritzmengen-Achse @0x3874+0xA1C4:-max. Wert 1039 -> 1510 (breiterer
+    Mengenbereich des Spenders, noetig fuer die Map-Inhalte).
+ c) Drehzahl-/Last-Kurven (56c1/5ec1/fac1-Records): Achsen und Stuetzwerte des
+    Spenders, z. B. Kurve @0x3898: Achsende [2831, 2931] -> [3031, 3631].
+ d) Limit-Feld @0x380C (9 Woerter): 3000 -> 10000 (Spender).
+ e) Raildruck-Limit (Record 'bedb' @0x1856): 18000 (= 1800 bar Skala) bleibt
+    aktiv. ACHTUNG: Dein "grosse Sensoren"-File hatte diesen Wert bereits auf
+    18000 (Stock 1037351777 = 15000). Spender und Ziel waren sich hier einig.
+ f) Weitere Kurven-/Tabellenzonen 0x0490-0x3860, 0x3866-0xBC00 gemaess Diff.
+
+--------------------------------------------------------------------------------
+ 3. GESCHUETT / BEWUSST NICHT UEBERNOMMEN (RR-ORIGINAL BLEIBT)
+--------------------------------------------------------------------------------
+ Blockoffsets (Flash = +0x70000):
+   0x00000-0x00010  Container-Header (Versionsfeld)
+   0x00B70-0x00B80  Pruefsummen-/Signaturfeld 1 (Marker 97 C1)
+   0x01820-0x01845  "grosse Sensoren"-Datensatz (9ada): [188, 500, 3000, 3313]
+                    -> Deine Sensor-Umbau-Kalibrierung bleibt unangetastet!
+   0x018D0-0x01930  versions-spezifische Zone (Strukturunterschied) -> RR
+   0x01E80-0x01EC0  Spender hat hier Werte reduziert (700/600/350 -> 150/50/25,
+                    Muster einer AGR-Reduzierung) -> BEWUSST RR-belassen:
+                    Dein AGR-Verhalten bleibt original (rechtlich sauberer).
+   0x02010-0x02030  Monitor-/Schwellenwerte (Spender: 0) -> RR
+   0x02520-0x02550  Monitor-/Schwellenwerte (Spender: 0) -> RR
+   0x028C0-0x02900  DTC-Ueberwachungskonfig (Spender: ffff/0 = Erkennung aus)
+                    -> Variante A: RR  |  Variante B: Spender (siehe Abs. 5)
+   0x033E0-0x03400  DTC-Ueberwachungskonfig (Spender: ffff-Muster)
+                    -> Variante A: RR  |  Variante B: Spender (siehe Abs. 5)
+   0x03862-0x03866  strukturelle Extra-Woerter der RR-Version (790, 680)
+   0x0BFB0-0x0BFC0  Software-Nummer "1037351777" (bleibt!)
+   0x0BFF0-0x0C000  Pruefsummen-/Signaturfeld 2 (Marker 97 C1)
+ Ausserdem unberuehrt: kompletter Code-Bereich, EWS-/Fahrzeugdaten, DTC-Liste
+ (0xB210+ ist zwischen beiden Versionen ohnehin identisch), alles ausserhalb
+ des Cal-Blocks.
+
+--------------------------------------------------------------------------------
+ 4. PRUEFSUMMEN / SIGNATUREN - WICHTIG!
+--------------------------------------------------------------------------------
+ Der Container traegt zwei Integritaetsfelder mit Marker "97 C1":
+   Sig1: Blockoffset 0x0B7C-0x0B80  (Flash 0x70B7C)
+   Sig2: Blockoffset 0xBFFC-0xC000  (Flash 0x7BFFC)
+ Beide reagieren auf Inhaltsaenderungen (nachgewiesen am Referenzpaar), der
+ Algorithmus ist aber KEIN Standard-CRC16/CRC32 (65536-Poly-Exhaustion, alle
+ Reflections, Rotationen, Summenfamilien, CRC32-Varianten: kein Match) sondern
+ proprietär (Bosch/WinOLS).
+ -> Die Signaturen im Transplantat stehen auf den RR-Originalwerten und sind
+    damit STALE (inhaltsabhaengig falsch).
+ -> VOR dem Flashen zwingend einen dieser Wege gehen:
+    Weg 1 (empfohlen): CAL_48K-File in WinOLS importieren (48K, Offset 0),
+      Checksum-Correction-Modul DDE4/EDC16C1 laufen lassen, exportieren,
+      dann zurueck ins 512K-Bild an 0x70000 einsetzen (oder nur Cal flashen).
+    Weg 2: Flash-Tool mit integrierter DDE4-Checksummenkorrektur (KESS/Galletto/
+      MPPS/Autotuner-Klasse korrigiert beim Schreibvorgang).
+    Weg 3 (BDM): Rohbild schreiben NUR wenn dein Tool die Korrektur macht;
+      sonst vorher Weg 1.
+ Die Signaturen betreffen NUR den Cal-Container - Code/EWS-Bereich ist
+ unveraendert, daran aendert sich nichts.
+
+--------------------------------------------------------------------------------
+ 5. VARIANTE B - HFM/MAF-TEST-VARIANTE
+--------------------------------------------------------------------------------
+ Du wolltest den Luftmassenmesser komplett deaktiviert. Befund nach
+ Data-Analyse des Spenders:
+   - Der 330D-Tune enthaelt KEINE zeroed HFM-Kennlinie und kein "MAF-to-MAP"-
+     Muster im Kalibrierblock.
+   - WAS er hat: 2 DTC-Ueberwachungszonen, in denen Schwellen auf "ffff/0"
+     gesetzt wurden (0x28C0-0x2900, betrifft Kennung 0F8E, und 0x33E0-0x03400).
+     Das ist das klassische Muster einer FEHLERERKENNUNGS-ABSCHALTUNG - sehr
+     wahrscheinlich HFM-Plausibilitaet (+ eine weitere Ueberwachung), da ein
+     Race-File ohne abgeschaltete Plausibilitaet mit entfernem HFM nicht
+     testbar waere. Eine 100 %-ige Zuordnung "0F8E = Luftmassenmesser" ist
+     ohne Damos/A2L nicht belegbar - daher getrennte Variante statt Default.
+   - EGR-Werte wurden im Spender ebenfalls reduziert; diese Zonen habe ich
+     ABSICHTLICH nicht uebernommen (AGR bleibt original, siehe Abschnitt 3).
+
+ Variante B = Variante A + genau diese 2 Zonen (15 Bytes) vom Spender.
+ Test-Protokoll Variante B:
+   1) Variante B flashen, Motor starten, Probefahrt OK?
+   2) HFM-Stecker abziehen, Motor starten:
+      - laeuft ruhig, keine MKL/Fahrsperre, Leistung wie erwartet
+        -> HFM-Abschaltung greift; HFM kann abgebaut/abgeklemmt bleiben.
+      - Notlauf/MKL -> Stecker wieder drauf, weiter mit Variante A
+        (HFM bleibt angeschlossen; echte HFM-Abschaltung braucht dann die
+        DDE4-Damos-Identifikation der HFM-Kennlinie - machbar als Folgeschritt).
+   3) Fehlerspeicher nach Test lesen und ggf. loeschen.
+
+--------------------------------------------------------------------------------
+ 6. DATEIEN
+--------------------------------------------------------------------------------
+   L322_TD6_1037351777_330D1600BAR_Transplant_FULL_512K.bin        (Variante A)
+   L322_TD6_1037351777_330D1600BAR_Transplant_CAL_48K.bin          (Variante A)
+   L322_TD6_1037351777_330D1600BAR_Transplant_VARIANTE-B_HFM-DTC_FULL_512K.bin
+   L322_TD6_1037351777_330D1600BAR_Transplant_VARIANTE-B_HFM-DTC_CAL_48K.bin
+   TRANSPLANTAT_PROTOKOLL.txt   (dieses Dokument)
+   FLASH_ANLEITUNG.txt
+
+ MD5 (Variante A):  FULL 7843412d60754cb78ec66eb50fbac384
+                    CAL  84673ffe24d7a170a85c0dc57ebe36b0
+ MD5 (Variante B):  FULL ccf79500d7b7a2e3f7f6b5a32ace9235
+                    CAL  3a0d51f0bb33b6f6036fdf39a49c21cf
+
+--------------------------------------------------------------------------------
+ 7. QA-NACHWEIS (automatisiert, alle PASS)
+--------------------------------------------------------------------------------
+ - 0x00000-0x70000 und 0x7C000-0x80000 byte-identisch mit deiner Basisdatei.
+ - Genau 10.868 Bytes im Cal geaendert, ausschliesslich in den freigegebenen
+   Kopier-Regionen; keine ausgelassenen Spender-Bytes.
+ - Gegenueber dem Spender differiert das Resultat NUR in den Schutz-Zonen
+   (Beweis: ausserhalb der Schutzliste ist der Inhalt = 330D-Tune).
+ - Stichproben: 6 Karten = Spender, IQ-Achse = Spender, Drucklimit 18000,
+   Sensor-Record = RR, SW-Nummer = 1037351777, DTC-Liste unveraendert,
+   Signaturen = RR-Stand, Header = RR, Insertion = RR.
+
+--------------------------------------------------------------------------------
+ 8. RUECKWEG
+--------------------------------------------------------------------------------
+ Original rr_winols (deine Basisdatei) zurueckflashen - fertig. Keine weiteren
+ Schritte noetig, da Code/EWS/Fahrzeugdaten nie angefasst wurden.
+
+--------------------------------------------------------------------------------
+ 9. HINWEISE
+--------------------------------------------------------------------------------
+ - Getriebe (GS20/MAX3 FINALE) und dieses Motor-File sind unabhaengige
+   Steuergeraete - keine Wechselwirkung im Flash. Fahrtechnisch relevant:
+   Mit dem 330D-Mengenbereich steigt das Motordrehmoment weiter ueber das
+   Werksniveau des M57 hinaus. Der 5L40-E ist ab Werk bereits an der
+   Belastungsgrenze (340 Nm Nennmoment gegenueber 390 Nm Motormoment) -
+   die MAX3-Getriebewerte (TCC 700 Nm, erhoehter Druck) mildern das,
+   aendern aber nichts an der mechanischen Grundbelastung. Fahrweise
+   entsprechend anpassen und Kupplung/Wandler im Auge behalten.
+ - Erste Fahrt: Adaptionen (Raildruck, Mengenadaption) laufen neu an; kurze
+   Kaltlaufphase einplanen, Fehlerspeicher danach kontrollieren.
+ - Wenn Kartenfehler/Startprobleme: NICHT weiterprobieren - Original zurueck
+   und Checksummen-Korrektur pruefen (Abschnitt 4).

@@ -1,0 +1,71 @@
+================================================================================
+ FLASH-ANLEITUNG - L322 TD6 DDE4 Transplantat (1037351777 + 330D 1600BAR)
+================================================================================
+
+VORAB - CHECKLISTE
+------------------
+[ ] Batterie gut geladen (>= 12,5 V; Ladegeraet empfohlen - Flash-Abbruch =
+    Steuergeraet-Tot). Merke: Deine Wahlhebel-Problematik war evtl. schon
+    Low-Voltage-bedingt - hier doppelt wichtig.
+[ ] ORIGINAL rr_winols-File gesichert und bereit (Rueckweg).
+[ ] Checksummen-Strategie festgelegt (siehe Schritt 2) - PFLICHT.
+
+SCHRITT 1 - VARIANTE WAEHLEN
+----------------------------
+   Variante A (Standard): Transplantat mit RR-Diagnose/AGR original.
+   Variante B (Test):     zusaezlich DTC-Abschaltzonen des 330D-Spenders
+                          (wahrscheinlichste HFM/MAF-Abschaltbasis).
+   -> Fuer den HFM-Test zuerst B, sonst A. Beide liegen als FULL (512 KB,
+      BDM) und CAL (48 KB, Map/WinOLS-Weg) bei.
+
+SCHRITT 2 - CHECKSUMMEN-KORREKTUR (PFLICHT VOR DEM SCHREIBEN)
+-------------------------------------------------------------
+Der Cal-Container traegt 2 Signaturfelder (Blockoffset 0x0B7C und 0xBFFC).
+Im ausgelieferten Stand sind sie STALE (inhaltsabhaengig falsch), weil der
+Algorithmus proprietär ist (kein Standard-CRC). Drei Wege:
+
+   WEG 1 - WinOLS (empfohlen, du arbeitest eh damit):
+     a) CAL_48K-File als neues Projekt importieren (Laenge 49152 / 0xC000).
+     b) Version/Checksum-Correction fuer DDE4 / EDC16C1 (SW 1037351777) laufen
+        lassen -> die 2 Signaturen werden neu berechnet.
+     c) Export als 48K-BIN.
+     d) Falls dein Flasher das 512K-Bild erwartet: exportierte 48K an Offset
+        0x70000 in das FULL_512K-Bild einsetzen (z. B. mit einem Hex-Editor
+        oder sagen wir Bescheid - ich baue dir das zusammengefuehrte File).
+   WEG 2 - Flash-Tool mit Auto-Korrektur: KESS/Galletto/MPPS/Autotuner-Klasse
+     korrigiert DDE4-Checksummen beim Schreibvorgang selbst -> FULL_512K oder
+     Map-Bereich direkt schreiben.
+   WEG 3 - BDM-Rohwrite OHNE Korrektur: NICHT EMPFOHLEN (Startverweigerung
+     moeglich, falls das SG die Signaturen prueft).
+
+SCHRITT 3 - SCHREIBEN
+---------------------
+   OBD-Tool (Map-Bereich): 48K-CAL-File (korrigiert) schreiben. EDC16C1
+     erlaubt Map-Bereich ueber OBD; Code bleibt unberuehrt.
+   BDM/TAG: FULL_512K-Image (korrigiert) komplett schreiben. Danach evtl.
+     Kennfeld-/Fehlerloeschen via OBD.
+
+SCHRITT 4 - ERSTSTART + TEST
+----------------------------
+   1) Zundung 2-3x an/aus (Pumpe vorgespulen), dann starten.
+   2) Leerlauf 2-3 Min, auf grobe Fehlwerte achten (Rauch, Ruetteln).
+   3) Fehlerspeicher lesen (INPA o. a.) - Post-Flash-Einzeleintraege
+      loeschen, kurz Probefahrt, erneut lesen.
+   4) Probefahrt: Lasterauf im 3./4. Gang - Erwartung: deutlich frueheres
+      und laengeres volles Drehmoment (330D-Mengen + 1800-bar-Skala).
+   5) Nur Variante B: HFM-Test wie Protokoll Abschnitt 5 (Stecker ab,
+      laufen testen, bei Notlauf wieder ran und Variante A flashen).
+
+RUECKWEG
+--------
+   Original rr_winols zurueckflashen (Checksummen darin sind konsistent,
+   da WinOLS sie beim damalsigen Edit korrekt gesetzt hat). Fertig.
+
+WICHTIGE ADRESSEN (fuer WinOLS/Hex-Arbeit)
+------------------------------------------
+   Cal-Block im Flash:      0x70000 - 0x7C000 (48 KB)
+   Signatur 1:              Flash 0x70B7C (Block 0x0B7C), 4 Byte
+   Signatur 2:              Flash 0x7BFFC (Block 0xBFFC), 4 Byte
+   SW-Nummer im Cal:        Block 0x0BFB0 ("1037351777")
+   Raildrucklimit-Record:   Block 0x1856 (18000 = 1800-bar-Skala)
+   grosse-Sensoren-Record:  Block 0x182C [188, 500, 3000, 3313] (unveraendert)

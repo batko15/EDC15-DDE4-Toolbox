@@ -1,0 +1,10 @@
+# BIN/Flash-Daten gehoeren NICHT in das Repo (Copyright Bosch + Fahrzeugdaten)
+*.bin
+*.0DA
+*.0PA
+*.zip
+*.apk
+*.xdx
+__pycache__/
+*.pyc
+.DS_Store
